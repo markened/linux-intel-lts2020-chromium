@@ -61,21 +61,62 @@ enum virtio_video_format {
 	VIRTIO_VIDEO_FORMAT_RAW_MIN = 1,
 	VIRTIO_VIDEO_FORMAT_ARGB8888 = VIRTIO_VIDEO_FORMAT_RAW_MIN,
 	VIRTIO_VIDEO_FORMAT_BGRA8888,
-	VIRTIO_VIDEO_FORMAT_NV12, /* 12  Y/CbCr 4:2:0  */
-	VIRTIO_VIDEO_FORMAT_YUV420, /* 12  YUV 4:2:0     */
-	VIRTIO_VIDEO_FORMAT_YVU420, /* 12  YVU 4:2:0     */
-	VIRTIO_VIDEO_FORMAT_RAW_MAX = VIRTIO_VIDEO_FORMAT_YVU420,
+	VIRTIO_VIDEO_FORMAT_RGB32,
+	VIRTIO_VIDEO_FORMAT_BGR24,
+	VIRTIO_VIDEO_FORMAT_RGB24,
+	VIRTIO_VIDEO_FORMAT_NV12M,
+	VIRTIO_VIDEO_FORMAT_NV21M,
+	VIRTIO_VIDEO_FORMAT_YUV420M,
+	VIRTIO_VIDEO_FORMAT_YVU420M,
+	VIRTIO_VIDEO_FORMAT_YUV420,
+	VIRTIO_VIDEO_FORMAT_YVU420,
+	VIRTIO_VIDEO_FORMAT_NV12,
+	VIRTIO_VIDEO_FORMAT_NV21,
+	VIRTIO_VIDEO_FORMAT_BGR32,
+	VIRTIO_VIDEO_FORMAT_RGB32_AFBC,
+	VIRTIO_VIDEO_FORMAT_BGR32_AFBC,
+	VIRTIO_VIDEO_FORMAT_RGBA1010102_AFBC,
+	VIRTIO_VIDEO_FORMAT_BGRA1010102_AFBC,
+	VIRTIO_VIDEO_FORMAT_NV12_AFBC,
+	VIRTIO_VIDEO_FORMAT_NV12_10B_AFBC,
+	VIRTIO_VIDEO_FORMAT_MT21,
+	VIRTIO_VIDEO_FORMAT_MT2110T,
+	VIRTIO_VIDEO_FORMAT_MT2110R,
+	VIRTIO_VIDEO_FORMAT_MT21C10T,
+	VIRTIO_VIDEO_FORMAT_MT21C10R,
+	VIRTIO_VIDEO_FORMAT_MT21S,
+	VIRTIO_VIDEO_FORMAT_MT21S10T,
+	VIRTIO_VIDEO_FORMAT_MT21S10R,
+	VIRTIO_VIDEO_FORMAT_MT21CS,
+	VIRTIO_VIDEO_FORMAT_MT21CSA,
+	VIRTIO_VIDEO_FORMAT_MT21CS10R,
+	VIRTIO_VIDEO_FORMAT_MT21CS10T,
+	VIRTIO_VIDEO_FORMAT_MT21S10RJ,
+	VIRTIO_VIDEO_FORMAT_MT21S10TJ,
+	VIRTIO_VIDEO_FORMAT_MT21CS10RJ,
+	VIRTIO_VIDEO_FORMAT_MT21CS10TJ,
+	VIRTIO_VIDEO_FORMAT_MT10S,
+	VIRTIO_VIDEO_FORMAT_MT10,
+	VIRTIO_VIDEO_FORMAT_P010S,
+	VIRTIO_VIDEO_FORMAT_NV21_AFBC,
+	VIRTIO_VIDEO_FORMAT_NV12_HYFBC,
+	VIRTIO_VIDEO_FORMAT_P010_HYFBC,
+	VIRTIO_VIDEO_FORMAT_RAW_MAX = VIRTIO_VIDEO_FORMAT_P010_HYFBC,
 
 	/* Coded formats */
 	VIRTIO_VIDEO_FORMAT_CODED_MIN = 0x1000,
 	VIRTIO_VIDEO_FORMAT_MPEG2 =
 		VIRTIO_VIDEO_FORMAT_CODED_MIN, /* MPEG-2 Part 2 */
 	VIRTIO_VIDEO_FORMAT_MPEG4, /* MPEG-4 Part 2 */
+	VIRTIO_VIDEO_FORMAT_H263, /* H.263 */
 	VIRTIO_VIDEO_FORMAT_H264, /* H.264 */
 	VIRTIO_VIDEO_FORMAT_HEVC, /* HEVC aka H.265*/
+	VIRTIO_VIDEO_FORMAT_HEIF,
 	VIRTIO_VIDEO_FORMAT_VP8, /* VP8 */
 	VIRTIO_VIDEO_FORMAT_VP9, /* VP9 */
-	VIRTIO_VIDEO_FORMAT_CODED_MAX = VIRTIO_VIDEO_FORMAT_VP9,
+	VIRTIO_VIDEO_FORMAT_AV1, /* AV1 */
+	VIRTIO_VIDEO_FORMAT_FWHT,
+	VIRTIO_VIDEO_FORMAT_CODED_MAX = VIRTIO_VIDEO_FORMAT_FWHT,
 };
 
 enum virtio_video_profile {
@@ -160,6 +201,9 @@ enum virtio_video_cmd_type {
 	VIRTIO_VIDEO_CMD_STREAM_CREATE,
 	VIRTIO_VIDEO_CMD_STREAM_DESTROY,
 	VIRTIO_VIDEO_CMD_STREAM_DRAIN,
+	VIRTIO_VIDEO_CMD_STREAM_ON,
+	VIRTIO_VIDEO_CMD_STREAM_OFF,
+	VIRTIO_VIDEO_CMD_REQUEST_BUFFER,
 	VIRTIO_VIDEO_CMD_RESOURCE_CREATE,
 	VIRTIO_VIDEO_CMD_RESOURCE_QUEUE,
 	VIRTIO_VIDEO_CMD_RESOURCE_DESTROY_ALL,
@@ -169,6 +213,7 @@ enum virtio_video_cmd_type {
 	VIRTIO_VIDEO_CMD_QUERY_CONTROL,
 	VIRTIO_VIDEO_CMD_GET_CONTROL,
 	VIRTIO_VIDEO_CMD_SET_CONTROL,
+	VIRTIO_VIDEO_CMD_RESOURCE_CREATE_MTK,
 
 	/* Response */
 	VIRTIO_VIDEO_RESP_OK_NODATA = 0x0200,
@@ -219,6 +264,7 @@ struct virtio_video_format_frame {
 	struct virtio_video_format_range width;
 	struct virtio_video_format_range height;
 	__le32 num_rates;
+	__le32 reserved[4];
 	__u8 padding[4];
 	/* Followed by struct virtio_video_format_range frame_rates[] */
 };
@@ -264,6 +310,19 @@ struct virtio_video_stream_drain {
 	struct virtio_video_cmd_hdr hdr;
 };
 
+/* VIRTIO_VIDEO_CMD_STREAM_ON_OFF */
+struct virtio_video_stream_on_off {
+	struct virtio_video_cmd_hdr hdr;
+	__le32 queue_type; /* One of VIRTIO_VIDEO_QUEUE_TYPE_* types */
+};
+
+/* VIRTIO_VIDEO_CMD_REQUEST_BUFFER */
+struct virtio_video_request_buffer {
+	struct virtio_video_cmd_hdr hdr;
+	__le32 queue_type; /* One of VIRTIO_VIDEO_QUEUE_TYPE_* types */
+	__le32 count; /* buffer counts */
+};
+
 /* VIRTIO_VIDEO_CMD_RESOURCE_CREATE */
 struct virtio_video_mem_entry {
 	__le64 addr;
@@ -281,7 +340,10 @@ struct virtio_video_resource_create {
 	struct virtio_video_cmd_hdr hdr;
 	__le32 queue_type; /* One of VIRTIO_VIDEO_QUEUE_TYPE_* types */
 	__le32 resource_id;
-	__le32 planes_layout;
+	union {
+		__le32 orig_resource_id;
+		__le32 planes_layout;
+	};
 	__le32 num_planes;
 	__le32 plane_offsets[VIRTIO_VIDEO_MAX_PLANES];
 	__le32 num_entries[VIRTIO_VIDEO_MAX_PLANES];
@@ -302,7 +364,11 @@ struct virtio_video_resource_queue {
 	__le64 timestamp;
 	__le32 num_data_sizes;
 	__le32 data_sizes[VIRTIO_VIDEO_MAX_PLANES];
-	__u8 padding[4];
+	__le32 flags;
+	union {
+		__le32 gbid;
+		__u8 padding[4];
+	};
 };
 
 enum virtio_video_buffer_flag {
@@ -313,6 +379,13 @@ enum virtio_video_buffer_flag {
 	VIRTIO_VIDEO_BUFFER_FLAG_IFRAME = 0x0004,
 	VIRTIO_VIDEO_BUFFER_FLAG_PFRAME = 0x0008,
 	VIRTIO_VIDEO_BUFFER_FLAG_BFRAME = 0x0010,
+
+	VIRTIO_VIDEO_BUFFER_CROP_CHANGED = 0x0020,
+	VIRTIO_VIDEO_BUFFER_COLOR_ASPECT_CHANGED = 0x0040,
+	VIRTIO_VIDEO_BUFFER_OUTPUT_NOT_GENERATED = 0x0080,
+	VIRTIO_VIDEO_BUFFER_MULTINAL = 0x0100,
+	VIRTIO_VIDEO_BUFFER_NAL_LENGTH_BS = 0x0200,
+	VIRTIO_VIDEO_BUFFER_REF_FREED = 0x0400,
 };
 
 struct virtio_video_resource_queue_resp {
@@ -384,6 +457,8 @@ enum virtio_video_control_type {
 	VIRTIO_VIDEO_CONTROL_BITRATE = 1,
 	VIRTIO_VIDEO_CONTROL_PROFILE,
 	VIRTIO_VIDEO_CONTROL_LEVEL,
+	VIRTIO_VIDEO_CONTROL_FORCE_KEYFRAME,
+	VIRTIO_VIDEO_CONTROL_MTK_EXTENSION,
 };
 
 struct virtio_video_query_control_profile {
@@ -445,6 +520,32 @@ struct virtio_video_control_val_level {
 	__u8 padding[4];
 };
 
+// V4L2_CTRL_TYPE_INTEGER
+struct virtio_video_control_val_integer {
+	__le32 value;
+	__u8 padding[4];
+};
+
+// V4L2_CTRL_TYPE_U32
+struct virtio_video_control_val_u32 {
+	__le32 length;
+	/* Followed by an array le32 payload[] */
+};
+
+// V4L2_CTRL_TYPE_STRING
+struct virtio_video_control_val_string {
+	__le32 length;
+	/* Followed by an array u8 string[] */
+};
+
+struct virtio_video_control_val_mtk {
+	__le32 id; /* One of V4L2_CID_MPEG_MTK_* */
+	__le32 type; /* One of V4L2_CTRL_TYPE_* */
+	__le32 payload_size;
+	__u8 padding[4];
+	/* Followed by an array u8 payload[] */
+};
+
 struct virtio_video_get_control_resp {
 	struct virtio_video_cmd_hdr hdr;
 	/* Followed by one of struct virtio_video_control_val_* */
@@ -472,11 +573,15 @@ enum virtio_video_event_type {
 
 	/* For decoder only */
 	VIRTIO_VIDEO_EVENT_DECODER_RESOLUTION_CHANGED = 0x0200,
+	VIRTIO_VIDEO_EVENT_EOS = 0x0300,
+	VIRTIO_VIDEO_EVENT_NO_SEQHEADER = 0x0400,
+	VIRTIO_VIDEO_EVENT_CODE_ERROR = 0x0500,
 };
 
 struct virtio_video_event {
 	__le32 event_type; /* One of VIRTIO_VIDEO_EVENT_* types */
 	__le32 stream_id;
+	__u8 data[64];
 };
 
 #endif /* _UAPI_LINUX_VIRTIO_VIDEO_H */
